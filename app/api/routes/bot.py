@@ -11,26 +11,18 @@ from app.schemas.bot import BotTradeRequest, BotTradeResponse
 
 router = APIRouter(prefix="/bot", tags=["bot"])
 
-WIN_RATE = 0.70
-WIN_PAYOUT = 0.90
-_OUTCOME_QUEUE: deque[bool] = deque()
+WIN_MULTIPLIER = 1.90
+_user_outcome_queues: dict[int, deque[bool]] = {}
+_pending_trades: dict[int, float] = {}
 
 
-def _next_outcome() -> bool:
-    if not _OUTCOME_QUEUE:
+def _next_outcome(user_id: int) -> bool:
+    queue = _user_outcome_queues.setdefault(user_id, deque())
+    if not queue:
         outcomes = [True] * 7 + [False] * 3
         random.shuffle(outcomes)
-        _OUTCOME_QUEUE.extend(outcomes)
-    return _OUTCOME_QUEUE.popleft()
-
-
-def compute_trade_delta(amount: float, win: bool) -> float:
-    """Compute the trade delta for a bot trade.
-
-    A win returns 90% profit on the staked amount.
-    A loss returns the full stake.
-    """
-    return amount * WIN_PAYOUT if win else -amount
+        queue.extend(outcomes)
+    return queue.popleft()
 
 
 @router.post("/trade", response_model=BotTradeResponse)
@@ -40,23 +32,52 @@ def execute_bot_trade(
     db: Session = Depends(get_db),
 ):
     balance = float(user.balance)
-    if balance <= 0:
-        raise HTTPException(status_code=400, detail="Account balance must be greater than $0 to trade")
-    if payload.amount > balance:
-        raise HTTPException(status_code=400, detail="Trade amount cannot exceed account balance")
+    if payload.phase not in {"start", "settle"}:
+        raise HTTPException(status_code=400, detail="Invalid phase")
 
     side = "BUY" if random.random() < 0.5 else "SELL"
-    win = _next_outcome()
-    delta = compute_trade_delta(payload.amount, win)
 
-    user.balance = balance + delta
+    if payload.phase == "start":
+        if payload.amount <= 0:
+            raise HTTPException(status_code=400, detail="Stake must be greater than 0")
+        if payload.amount > balance:
+            raise HTTPException(status_code=400, detail="Trade amount cannot exceed account balance")
+        if user.id in _pending_trades:
+            raise HTTPException(status_code=400, detail="A trade is already pending")
+
+        user.balance = round(balance - payload.amount, 2)
+        _pending_trades[user.id] = payload.amount
+        db.commit()
+
+        return BotTradeResponse(
+            pair=payload.pair,
+            side=side,
+            amount=payload.amount,
+            win=False,
+            delta=0.0,
+            balance=float(user.balance),
+            message="Trade started and stake reserved",
+        )
+
+    pending_amount = _pending_trades.pop(user.id, None)
+    if pending_amount is None:
+        raise HTTPException(status_code=400, detail="No pending trade to settle")
+
+    win = _next_outcome(user.id)
+    if win:
+        delta = round(pending_amount * WIN_MULTIPLIER, 2)
+        user.balance = round(balance + delta, 2)
+    else:
+        delta = round(-pending_amount, 2)
+        user.balance = round(balance, 2)
     db.commit()
 
     return BotTradeResponse(
         pair=payload.pair,
         side=side,
-        amount=payload.amount,
+        amount=pending_amount,
         win=win,
         delta=delta,
         balance=float(user.balance),
+        message="Trade settled",
     )

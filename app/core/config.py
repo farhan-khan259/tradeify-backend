@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,12 +35,12 @@ class Settings(BaseSettings):
     EXPOSE_FORGOT_PASSWORD_OTP: bool = True
     PASSWORD_RESET_OTP_EXPIRE_MINUTES: int = 10
 
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = ""
-    SMTP_USE_TLS: bool = True
+    SMTP_HOST: str = Field("smtp.gmail.com", env=["SMTP_HOST"])
+    SMTP_PORT: int = Field(587, env=["SMTP_PORT"])
+    SMTP_USERNAME: str = Field("", env=["SMTP_USERNAME", "EMAIL_USER"])
+    SMTP_PASSWORD: str = Field("", env=["SMTP_PASSWORD", "EMAIL_PASS"])
+    SMTP_FROM_EMAIL: str = Field("", env=["SMTP_FROM_EMAIL", "EMAIL_USER"])
+    SMTP_USE_TLS: bool = Field(True, env=["SMTP_USE_TLS"])
 
     BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 

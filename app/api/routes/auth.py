@@ -109,6 +109,9 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
 
 @router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Password and confirm password do not match")
+
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid email or OTP")

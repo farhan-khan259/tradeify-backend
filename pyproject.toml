@@ -1,10 +1,17 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Tradeify backend API"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.138.1",
     "uvicorn>=0.49.0",
+    "sqlalchemy>=2.0.40",
+    "pydantic-settings>=2.10.6",
+    "pyjwt>=2.9.0",
+    "bcrypt>=4.1.2",
+    "psycopg[binary]>=3.2.1",
+    "python-multipart>=0.0.20",
+    "email-validator>=2.1.0",
 ]

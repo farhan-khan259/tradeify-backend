@@ -12,7 +12,7 @@ from app.schemas.bot import BotTradeRequest, BotTradeResponse
 router = APIRouter(prefix="/bot", tags=["bot"])
 
 WIN_RATE = 0.70
-WIN_PAYOUT = 0.85
+WIN_PAYOUT = 0.90
 _OUTCOME_QUEUE: deque[bool] = deque()
 
 
@@ -22,6 +22,15 @@ def _next_outcome() -> bool:
         random.shuffle(outcomes)
         _OUTCOME_QUEUE.extend(outcomes)
     return _OUTCOME_QUEUE.popleft()
+
+
+def compute_trade_delta(amount: float, win: bool) -> float:
+    """Compute the trade delta for a bot trade.
+
+    A win returns 90% profit on the staked amount.
+    A loss returns the full stake.
+    """
+    return amount * WIN_PAYOUT if win else -amount
 
 
 @router.post("/trade", response_model=BotTradeResponse)
@@ -38,7 +47,7 @@ def execute_bot_trade(
 
     side = "BUY" if random.random() < 0.5 else "SELL"
     win = _next_outcome()
-    delta = payload.amount * WIN_PAYOUT if win else -payload.amount
+    delta = compute_trade_delta(payload.amount, win)
 
     user.balance = balance + delta
     db.commit()

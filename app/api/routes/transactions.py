@@ -27,6 +27,12 @@ def request_deposit(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if not payload.note or not payload.note.strip():
+        raise HTTPException(status_code=400, detail="Transaction reference or note is required")
+
+    if not payload.screenshot_data or not payload.screenshot_data.strip():
+        raise HTTPException(status_code=400, detail="Upload the payment screenshot")
+
     # Demo deposits are recorded as pending and credited only on admin approval.
     tx = Transaction(
         user_id=user.id,

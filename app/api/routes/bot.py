@@ -27,6 +27,7 @@ def _next_outcome(user_id: int) -> bool:
 
 def compute_trade_delta(amount: float, win: bool) -> float:
     if win:
+        # Return the payout: original stake + 90% profit = 190% of stake
         return round(amount * WIN_PROFIT_RATE, 2)
     return round(-amount, 2)
 
@@ -72,8 +73,10 @@ def execute_bot_trade(
     win = _next_outcome(user.id)
     delta = compute_trade_delta(pending_amount, win)
     if win:
-        user.balance = round(balance + pending_amount + delta, 2)
+        # Add the payout (delta is already the full return: stake + profit)
+        user.balance = round(balance + delta, 2)
     else:
+        # Balance stays the same (stake was already deducted)
         user.balance = round(balance, 2)
     db.commit()
 

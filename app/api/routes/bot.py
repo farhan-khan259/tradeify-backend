@@ -1,6 +1,7 @@
 import random
 from collections import deque
 from typing import List
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -83,7 +84,9 @@ def execute_bot_trade(
         _user_pending_trades[user.id] = {
             "amount": payload.amount,
             "pair": payload.pair,
-            "side": side
+            "side": side,
+            "duration": getattr(payload, "duration", 60),
+            "started_at": datetime.now().isoformat(),
         }
         db.commit()
 
@@ -142,6 +145,38 @@ def execute_bot_trade(
         balance=new_balance,
         message="Trade settled",
     )
+
+
+
+@router.get("/trade/pending")
+def get_pending_trade(
+    user: User = Depends(get_current_user),
+):
+    """Return the current pending trade for the user, if any"""
+    pending = _user_pending_trades.get(user.id)
+    if not pending:
+        return {"pending": False}
+    return {"pending": True, **pending}
+
+
+@router.delete("/trade/pending")
+def cancel_pending_trade(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cancel a pending trade and refund the reserved stake"""
+    pending = _user_pending_trades.pop(user.id, None)
+    if not pending:
+        raise HTTPException(status_code=400, detail="No pending trade to cancel")
+
+    # Refund stake to user
+    try:
+        user.balance = round(float(user.balance) + float(pending.get("amount", 0)), 2)
+        db.commit()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to refund stake")
+
+    return {"status": "cancelled", "refunded": pending.get("amount", 0), "balance": float(user.balance)}
 
 
 @router.get("/trade/status")

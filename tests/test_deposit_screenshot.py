@@ -1,10 +1,11 @@
 from types import SimpleNamespace
 import unittest
 
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.api.routes.transactions import request_deposit
+from app.api.routes.transactions import request_deposit, request_withdrawal
 from app.core.database import Base
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionCreate
@@ -55,6 +56,26 @@ class DepositScreenshotTests(unittest.TestCase):
         self.assertIsNotNone(stored)
         self.assertEqual(stored.screenshot_data, payload.screenshot_data)
         self.assertEqual(stored.user_id, user.id)
+
+    def test_deposit_requires_at_least_50(self) -> None:
+        user = SimpleNamespace(id=1)
+        with self.assertRaises(HTTPException) as ctx:
+            request_deposit(
+                payload=TransactionCreate(amount=49, note="demo", screenshot_data="data:image/png;base64,abc123"),
+                user=user,
+                db=self.session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_withdrawal_requires_at_least_100(self) -> None:
+        user = SimpleNamespace(id=1, balance=1000.0)
+        with self.assertRaises(HTTPException) as ctx:
+            request_withdrawal(
+                payload=TransactionCreate(amount=99, account_name="Spot", wallet_address="abc", network="TRC20"),
+                user=user,
+                db=self.session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
 
 
 if __name__ == "__main__":

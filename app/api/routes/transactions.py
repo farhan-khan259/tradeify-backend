@@ -10,6 +10,9 @@ from app.schemas.transaction import TransactionCreate, TransactionPublic
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
+MIN_DEPOSIT = 50
+MIN_WITHDRAWAL = 100
+
 
 @router.get("", response_model=list[TransactionPublic])
 def list_my_transactions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -27,6 +30,9 @@ def request_deposit(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if payload.amount < MIN_DEPOSIT:
+        raise HTTPException(status_code=400, detail=f"Minimum deposit is ${MIN_DEPOSIT}")
+
     if not payload.note or not payload.note.strip():
         raise HTTPException(status_code=400, detail="Transaction reference or note is required")
 
@@ -54,6 +60,8 @@ def request_withdrawal(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if payload.amount < MIN_WITHDRAWAL:
+        raise HTTPException(status_code=400, detail=f"Minimum withdrawal is ${MIN_WITHDRAWAL}")
     if not payload.account_name:
         raise HTTPException(status_code=400, detail="Please select the account name")
     if not payload.wallet_address:

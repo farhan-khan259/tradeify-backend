@@ -10,6 +10,7 @@ from app.models import User, Transaction, TransactionType, TransactionStatus, Re
 from app.schemas.admin import AdminStats
 from app.schemas.transaction import TransactionPublic, TransactionResolve
 from app.schemas.user import UserAdminView
+from app.services.referral import REFERRAL_BONUS, should_credit_referral_bonus
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -93,6 +94,43 @@ def resolve_transaction(
     if payload.status == TransactionStatus.approved:
         if tx.type == TransactionType.deposit:
             user.balance = float(user.balance) + float(tx.amount)
+
+            if user.referred_by_id:
+                approved_deposit_total = float(
+                    db.query(func.coalesce(func.sum(Transaction.amount), 0))
+                    .filter(
+                        Transaction.user_id == user.id,
+                        Transaction.type == TransactionType.deposit,
+                        Transaction.status == TransactionStatus.approved,
+                    )
+                    .scalar()
+                    or 0
+                )
+                approved_deposit_total += float(tx.amount)
+
+                if should_credit_referral_bonus(approved_deposit_total):
+                    referrer = (
+                        db.query(User).filter(User.id == user.referred_by_id).first()
+                    )
+                    existing_referral = (
+                        db.query(Referral)
+                        .filter(
+                            Referral.referrer_id == referrer.id,
+                            Referral.referred_id == user.id,
+                        )
+                        .first()
+                        if referrer
+                        else None
+                    )
+                    if referrer and not existing_referral:
+                        referrer.balance = float(referrer.balance) + REFERRAL_BONUS
+                        db.add(
+                            Referral(
+                                referrer_id=referrer.id,
+                                referred_id=user.id,
+                                bonus_amount=REFERRAL_BONUS,
+                            )
+                        )
         # Withdrawals already debited the balance at request time.
     else:  # rejected
         if tx.type == TransactionType.withdrawal:

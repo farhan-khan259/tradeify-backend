@@ -13,7 +13,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models import User, Referral
+from app.models import User
 from app.schemas.auth import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
@@ -22,7 +22,7 @@ from app.schemas.auth import (
     Token,
 )
 from app.schemas.user import UserPublic
-from app.services.referral import generate_referral_code, REFERRAL_BONUS
+from app.services.referral import generate_referral_code
 from app.services.mail import send_password_reset_otp_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -54,10 +54,6 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.flush()  # assign user.id
-
-    if referrer:
-        referrer.balance = float(referrer.balance) + REFERRAL_BONUS
-        db.add(Referral(referrer_id=referrer.id, referred_id=user.id, bonus_amount=REFERRAL_BONUS))
 
     db.commit()
     db.refresh(user)

@@ -7,8 +7,14 @@ from app.models import User
 
 _ALPHABET = string.ascii_uppercase + string.digits
 
-# Demo-only bonus credited (in simulated balance) to a referrer when someone signs up.
-REFERRAL_BONUS = 25.0
+# Demo-only bonus credited (in simulated balance) to a referrer once the referred user
+# reaches the minimum deposit threshold.
+REFERRAL_BONUS = 5.0
+MIN_REFERRAL_DEPOSIT = 50.0
+
+
+def should_credit_referral_bonus(deposit_total: float) -> bool:
+    return float(deposit_total) >= MIN_REFERRAL_DEPOSIT
 
 
 def generate_referral_code(db: Session, length: int = 8) -> str:

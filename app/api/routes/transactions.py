@@ -10,7 +10,7 @@ from app.schemas.transaction import TransactionCreate, TransactionPublic
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
-MIN_DEPOSIT = 50
+MIN_DEPOSIT = 30
 MIN_WITHDRAWAL = 100
 
 

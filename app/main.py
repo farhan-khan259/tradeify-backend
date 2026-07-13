@@ -9,6 +9,7 @@ import random
 from typing import Dict, List
 
 from app.core.config import settings
+from app.services.outcome_cycle import generate_balanced_outcomes
 from app.core.database import Base, engine, SessionLocal
 from app.api.routes import auth, transactions, referrals, admin, bot
 from app.services.seed import seed_admin
@@ -20,9 +21,7 @@ ws_connections: Dict[str, List[WebSocket]] = {}
 
 
 def generate_new_block() -> List[str]:
-    block = ["W"] * 7 + ["L"] * 3
-    random.shuffle(block)
-    return block
+    return generate_balanced_outcomes()
 
 
 def get_or_create_account(account_id: str) -> Dict:

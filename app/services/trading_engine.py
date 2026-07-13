@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 from enum import Enum
 
+from app.services.outcome_cycle import generate_balanced_outcomes
+
 # Configure detailed logging
 logging.basicConfig(
     level=logging.INFO,
@@ -197,7 +199,9 @@ class TradingEngine:
             "trades": [],
             "total_wins": 0,
             "total_losses": 0,
-            "win_rate": 0.0
+            "win_rate": 0.0,
+            "outcome_cycle": generate_balanced_outcomes(),
+            "outcome_index": 0
         }
         
         self.analysis_logs = []
@@ -213,8 +217,10 @@ class TradingEngine:
         # Perform pre-trade analysis
         signal, side, confidence = self.generate_trading_signal(pair, self.current_session["timeframe"])
         
-        # Simulate trade execution
-        is_win = random.random() < 0.7  # 70% win rate
+        # Simulate trade execution using a deterministic 10-trade cycle
+        outcome = self.current_session["outcome_cycle"][self.current_session["outcome_index"]]
+        is_win = outcome == "W"
+        self.current_session["outcome_index"] = (self.current_session["outcome_index"] + 1) % len(self.current_session["outcome_cycle"])
         
         if is_win:
             profit = amount * 0.9  # 90% profit on win
